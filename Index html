@@ -1,0 +1,29 @@
+<script src="https://static.line-scdn.net/liff/edge/2/sdk.js"></script>
+<script>
+async function main() {
+  await liff.init({ liffId: "你的LIFF_ID" });
+
+  if (!liff.isLoggedIn()) {
+    liff.login();
+    return;
+  }
+
+  const profile = await liff.getProfile();
+
+  const res = await fetch("https://script.google.com/macros/s/你的部署ID/exec", {
+    method: "POST",
+    headers: {
+      "Content-Type": "text/plain;charset=utf-8"
+    },
+    body: JSON.stringify({
+      userId: profile.userId,
+      displayName: profile.displayName
+    })
+  });
+
+  const text = await res.text();
+  console.log(text);
+}
+
+main();
+</script>
