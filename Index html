@@ -1,29 +1,909 @@
-<script src="https://static.line-scdn.net/liff/edge/2/sdk.js"></script>
-<script>
-async function main() {
-  await liff.init({ liffId: "2009523479-cbGjkaQk" });
+<!DOCTYPE html>
+<html>
 
-  if (!liff.isLoggedIn()) {
-    liff.login();
-    return;
-  }
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
+    <title>訂位申請 - 遇見露營區</title>
 
-  const profile = await liff.getProfile();
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/jqueryui/1.12.1/themes/base/jquery-ui.min.css">
+    <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/4.0.0/css/bootstrap.min.css">
 
-  const res = await fetch("https://script.google.com/macros/s/AKfycby_EmQp4xWX3sdT6e2id3PJ-WQcEO5vVBV7rZMOCzQ/dev", {
-    method: "POST",
-    headers: {
-      "Content-Type": "text/plain;charset=utf-8"
-    },
-    body: JSON.stringify({
-      userId: profile.userId,
-      displayName: profile.displayName
-    })
-  });
+    <script src="https://code.jquery.com/jquery-3.3.1.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jqueryui/1.12.1/jquery-ui.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/popper.js/1.12.9/umd/popper.min.js"></script>
+    <script src="https://maxcdn.bootstrapcdn.com/bootstrap/4.0.0/js/bootstrap.min.js"></script>
+    <script src="https://static.line-scdn.net/liff/edge/versions/2.22.3/sdk.js"></script>
 
-  const text = await res.text();
-  console.log(text);
-}
+    <style>
+        body {
+            background: #f4f1ec;
+            font-family: "Microsoft JhengHei", "PingFang TC", sans-serif;
+        }
 
-main();
-</script>
+        .page-title {
+            color: #654b24;
+            font-weight: bold;
+            text-align: center;
+            padding: 20px 0 10px;
+            font-size: 1.6rem;
+            letter-spacing: 2px;
+        }
+
+        .card-section {
+            background: #fff;
+            border-radius: 12px;
+            padding: 20px;
+            margin-bottom: 16px;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+        }
+
+        .section-title {
+            font-size: 1rem;
+            font-weight: bold;
+            color: #654b24;
+            border-left: 4px solid #654b24;
+            padding-left: 10px;
+            margin-bottom: 14px;
+        }
+
+        /* ── 月曆 ── */
+        #datepicker {
+            width: 100%;
+        }
+
+        .ui-datepicker {
+            width: 100% !important;
+            font-size: 1rem;
+        }
+
+        .ui-datepicker-calendar td {
+            text-align: center;
+            width: 14%;
+            position: relative;
+        }
+
+        .ui-datepicker td a,
+        .ui-datepicker td span {
+            text-align: center;
+            padding: .4em;
+            display: block;
+            position: relative;
+        }
+
+        .ui-state-default {
+            background: #f8f7f6;
+            border-color: #ccc;
+            color: #333;
+        }
+
+        .ui-state-highlight,
+        .ui-widget-content .ui-state-highlight {
+            background: #fdf6ec;
+            border-color: #654b24;
+            color: #654b24;
+        }
+
+        /* 已選擇的日期 */
+        .ui-datepicker td.selected-date a {
+            background: #654b24 !important;
+            border-color: #654b24 !important;
+            color: #fff !important;
+            font-weight: bold;
+        }
+
+        /* 剩餘位置顯示 */
+        .availability-badge {
+            position: absolute;
+            bottom: 2px;
+            right: 2px;
+            font-size: 0.65rem;
+            background: #28a745;
+            color: white;
+            border-radius: 3px;
+            padding: 1px 3px;
+            font-weight: bold;
+            pointer-events: none;
+        }
+
+        .availability-badge.low {
+            background: #ffc107;
+            color: #333;
+        }
+
+        .availability-badge.full {
+            background: #dc3545;
+        }
+
+        /* 已選日期橫幅 */
+        .date-selected-banner {
+            background: #654b24;
+            color: #fff;
+            border-radius: 8px;
+            padding: 10px 16px;
+            text-align: center;
+            font-size: 1.15rem;
+            font-weight: bold;
+            margin-top: 12px;
+            display: none;
+        }
+
+        /* ── 區域列 ── */
+        .area-row {
+            border: 2px solid #e0dada;
+            border-radius: 8px;
+            padding: 12px 14px;
+            margin-bottom: 8px;
+            transition: border-color 0.2s, background 0.2s;
+            cursor: pointer;
+        }
+
+        .area-row.selected {
+            border-color: #654b24;
+            background: #fdf6ec;
+        }
+
+        .area-checkbox {
+            width: 22px;
+            height: 22px;
+            cursor: pointer;
+            flex-shrink: 0;
+        }
+
+        .area-label {
+            font-size: 1.05rem;
+            font-weight: 600;
+            margin-bottom: 0;
+            cursor: pointer;
+        }
+
+        .rain-badge {
+            font-size: 0.75rem;
+            padding: 2px 7px;
+            border-radius: 10px;
+            font-weight: normal;
+            margin-left: 6px;
+            vertical-align: middle;
+        }
+
+        .rain-yes {
+            background: #d1ecf1;
+            color: #0c5460;
+        }
+
+        .rain-no {
+            background: #e2e3e5;
+            color: #383d41;
+        }
+
+        .people-input-row {
+            display: none;
+            margin-top: 10px;
+            padding-top: 8px;
+            border-top: 1px solid #eee;
+        }
+
+        .people-input-row input[type="number"] {
+            width: 88px;
+            display: inline-block;
+        }
+
+        /* ── 車數顯示 ── */
+        .car-count-row {
+            margin-top: 12px;
+            padding-top: 12px;
+            border-top: 1px solid #eee;
+            font-size: 1rem;
+        }
+
+        .car-count-value {
+            font-size: 1.3rem;
+            font-weight: bold;
+            color: #654b24;
+        }
+
+        /* ── 送出按鈕 ── */
+        .btn-submit {
+            background-color: #654b24;
+            border-color: #654b24;
+            font-size: 1.15rem;
+            padding: 12px;
+            border-radius: 8px;
+            width: 100%;
+            font-weight: bold;
+            letter-spacing: 1px;
+        }
+
+        .btn-submit:hover:not(:disabled) {
+            background-color: #4e3a1c;
+            border-color: #4e3a1c;
+        }
+
+        .btn-submit:disabled {
+            opacity: 0.7;
+        }
+
+        /* ── 手機版調整 ── */
+        @media (max-width: 480px) {
+            .page-title {
+                font-size: 1.7rem;
+            }
+
+            .area-label {
+                font-size: 1.4rem;
+            }
+
+            .section-title {
+                font-size: 1.3rem;
+            }
+
+            .form-control {
+                font-size: 1.3rem;
+                height: auto;
+                padding: 10px 12px;
+            }
+
+            label {
+                font-size: 1.25rem;
+            }
+
+            .btn-submit {
+                font-size: 1.4rem;
+                padding: 14px;
+            }
+
+            .car-count-value {
+                font-size: 1.6rem;
+            }
+
+            .rain-badge {
+                font-size: 0.95rem;
+            }
+
+            .card-section {
+                padding: 14px 10px;
+            }
+
+            .container {
+                padding-left: 6px !important;
+                padding-right: 6px !important;
+            }
+
+            small {
+                font-size: 1rem;
+            }
+        }
+
+        /* ── 平板版調整（481px ~ 900px） ── */
+        @media (min-width: 481px) and (max-width: 900px) {
+            .page-title {
+                font-size: 1.8rem;
+            }
+
+            .area-label {
+                font-size: 1.45rem;
+            }
+
+            .section-title {
+                font-size: 1.35rem;
+            }
+
+            .form-control {
+                font-size: 1.35rem;
+                height: auto;
+                padding: 10px 14px;
+            }
+
+            label {
+                font-size: 1.3rem;
+            }
+
+            .btn-submit {
+                font-size: 1.45rem;
+                padding: 14px;
+            }
+
+            .car-count-value {
+                font-size: 1.65rem;
+            }
+
+            .rain-badge {
+                font-size: 1rem;
+            }
+
+            .card-section {
+                padding: 16px 12px;
+            }
+
+            .container {
+                padding-left: 8px !important;
+                padding-right: 8px !important;
+            }
+
+            small {
+                font-size: 1.05rem;
+            }
+
+            .container {
+                max-width: 880px;
+            }
+        }
+
+        @media (min-width: 768px) {
+            .page-title {
+                font-size: 2.8rem;
+            }
+
+            .area-label {
+                font-size: 2.45rem;
+            }
+
+            .section-title {
+                font-size: 2.35rem;
+            }
+
+            .form-control {
+                font-size: 2.35rem;
+                height: auto;
+                padding: 10px 14px;
+            }
+
+            label {
+                font-size: 2.3rem;
+            }
+
+            .btn-submit {
+                font-size: 2.45rem;
+                padding: 14px;
+            }
+
+            .car-count-value {
+                font-size: 2.65rem;
+            }
+
+            .rain-badge {
+                font-size: 2rem;
+            }
+
+            .card-section {
+                padding: 16px 12px;
+            }
+
+            .container {
+                padding-left: 8px !important;
+                padding-right: 8px !important;
+            }
+
+            small {
+                font-size: 2.05rem;
+            }
+
+            .container {
+                max-width: 900px;
+            }
+        }
+
+        /* ── Loading 遮罩 ── */
+        #loadingOverlay {
+            position: fixed;
+            inset: 0;
+            background: rgba(244, 241, 236, 0.95);
+            z-index: 9999;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            gap: 16px;
+        }
+
+        #loadingOverlay .spinner {
+            width: 48px;
+            height: 48px;
+            border: 5px solid #e0d8ce;
+            border-top-color: #654b24;
+            border-radius: 50%;
+            animation: spin 0.8s linear infinite;
+        }
+
+        #loadingOverlay .loading-text {
+            color: #654b24;
+            font-size: 1rem;
+            font-weight: bold;
+            letter-spacing: 1px;
+        }
+
+        @keyframes spin {
+            to {
+                transform: rotate(360deg);
+            }
+        }
+    </style>
+</head>
+
+<body>
+
+    <!-- Loading 遮罩 -->
+    <div id="loadingOverlay">
+        <div class="spinner"></div>
+        <div class="loading-text">載入中…</div>
+    </div>
+
+    <div class="container py-2">
+
+        <div class="page-title">📅 訂位申請</div>
+
+        <!-- ══ 1. 訂位日期（支援多選連續日期） ═══════════════════════ -->
+        <div class="card-section">
+            <div class="section-title">① 選擇訂位日期（可連續多天）</div>
+            <div id="datepicker"></div>
+            <div class="date-selected-banner" id="dateBanner">
+                已選擇：<span id="selectedDateText"></span>
+            </div>
+        </div>
+
+        <!-- ══ 2 ~ 5（選完日期後顯示）══════════════════════════════ -->
+        <div id="formSection" style="display:none;">
+
+            <!-- ── 2. 聯絡資訊 ─────────────────────────────────────── -->
+            <div class="card-section">
+                <div class="section-title">② 聯絡資訊</div>
+
+                <div class="form-group">
+                    <label for="inputName">姓名 <span class="text-danger">*</span></label>
+                    <input type="text" class="form-control" id="inputName" placeholder="請輸入姓名" autocomplete="name">
+                </div>
+
+                <div class="form-group">
+                    <label for="inputPhone">電話 <span class="text-danger">*</span></label>
+                    <input type="tel" class="form-control" id="inputPhone" placeholder="09XXXXXXXX" maxlength="10"
+                        autocomplete="tel">
+                </div>
+
+                <div class="form-group mb-0">
+                    <label for="inputCarPlate">
+                        車號 <small class="text-muted font-weight-normal">（選填）</small>
+                    </label>
+                    <input type="text" class="form-control" id="inputCarPlate" placeholder="例：ABC-1234">
+                </div>
+            </div>
+
+            <!-- ── 3. 區域與人數 ────────────────────────────────────── -->
+            <div class="card-section">
+                <div class="section-title">③ 選擇區域與人數 <span class="text-danger">*</span></div>
+
+                <div id="areasContainer">
+                    <div class="text-center text-muted py-3">
+                        <span class="spinner-border spinner-border-sm mr-2"></span>載入中...
+                    </div>
+                </div>
+
+                <div class="car-count-row d-flex align-items-center">
+                    <span class="mr-2">車數：</span>
+                    <span class="car-count-value" id="carCountDisplay">0 車</span>
+                    <small class="text-muted ml-2">（依勾選區域數自動計算）</small>
+                </div>
+            </div>
+
+            <!-- ── 4. 備註 ──────────────────────────────────────────── -->
+            <div class="card-section">
+                <div class="section-title">④ 備註 <small class="text-muted font-weight-normal">（選填）</small></div>
+                <textarea class="form-control" id="inputNotes" rows="3" placeholder="其他需求或備註"></textarea>
+            </div>
+
+            <!-- ── 錯誤訊息 ─────────────────────────────────────────── -->
+            <div class="alert alert-danger" id="errorMsg" style="display:none; border-radius:8px;"></div>
+
+            <!-- ── 送出按鈕 ─────────────────────────────────────────── -->
+            <button type="button" class="btn btn-primary btn-submit" id="submitBtn">
+                確認送出訂位
+            </button>
+
+            <div id="output" class="mt-3"></div>
+
+        </div><!-- /formSection -->
+
+    </div><!-- /container -->
+
+
+    <script>
+        // ════════════════════════════════════════════════════════════
+        // 配置區域
+        // ════════════════════════════════════════════════════════════
+        const API_BASE_URL = 'https://script.google.com/macros/s/AKfycby4x4fKdqtPsc5nkkUV5mBJeFIVvHBXagYjly45Xtg97hkRD8WgHmjacsWcmOxbOpdQ/exec';
+        const LIFF_ID = '2009523479-cbGjkaQk';
+
+        // ── 全域變數 ───────────────────────────────────────────────
+        var areasData = [];
+        var selectedDates = []; // 已選擇的日期陣列（字串格式：yyyy/MM/dd）
+        var monthAvailability = {}; // 當前月份的剩餘位置資料
+        var LINE_USER_ID = "";
+        var LINE_ID_TOKEN = "";
+
+        // ════════════════════════════════════════════════════════════
+        // LIFF 初始化與頁面啟動
+        // ════════════════════════════════════════════════════════════
+
+        if (LIFF_ID && /Line\//.test(navigator.userAgent)) {
+            // 在 LINE App 內：初始化 LIFF
+            var liffTimer = setTimeout(function () {
+                console.warn('LIFF timeout, proceeding without LIFF');
+                initPage();
+            }, 3000);
+
+            liff.init({ liffId: LIFF_ID })
+                .then(function () {
+                    clearTimeout(liffTimer);
+                    if (!liff.isLoggedIn()) {
+                        liff.login();
+                        return;
+                    }
+                    return liff.getProfile();
+                })
+                .then(function (profile) {
+                    if (profile) {
+                        LINE_USER_ID = profile.userId;
+                        LINE_ID_TOKEN = liff.getIDToken();
+                        console.log('LIFF initialized successfully');
+                    }
+                    initPage();
+                })
+                .catch(function (error) {
+                    console.error('LIFF init error:', error);
+                    clearTimeout(liffTimer);
+                    initPage();
+                });
+        } else {
+            // 一般瀏覽器：不使用 LIFF，直接進頁面
+            $(function () { initPage(); });
+        }
+
+        // ════════════════════════════════════════════════════════════
+        // 頁面初始化
+        // ════════════════════════════════════════════════════════════
+        function initPage() {
+            $("#loadingOverlay").fadeOut(300);
+
+            // 初始化日期選擇器（多選模式）
+            initDatepicker();
+
+            // 載入區域配置
+            loadAreasConfig();
+        }
+
+        // ── 初始化日期選擇器（支援多選連續日期） ───────────────────
+        function initDatepicker() {
+            var today = new Date();
+            today.setHours(0, 0, 0, 0);
+
+            var currentYear = today.getFullYear();
+            var currentMonth = today.getMonth() + 1;
+
+            // 先載入本月份的剩餘位置資料
+            loadMonthAvailability(currentYear, currentMonth);
+
+            $("#datepicker").datepicker({
+                dateFormat: "yy/mm/dd",
+                minDate: "+1d",
+                maxDate: "+3M",
+                dayNamesMin: ["日", "一", "二", "三", "四", "五", "六"],
+                monthNames: ["1月", "2月", "3月", "4月", "5月", "6月",
+                    "7月", "8月", "9月", "10月", "11月", "12月"],
+                monthNamesShort: ["1月", "2月", "3月", "4月", "5月", "6月",
+                    "7月", "8月", "9月", "10月", "11月", "12月"],
+
+                // 自定義日期顯示（加上剩餘位置標記）
+                beforeShowDay: function (date) {
+                    var dateStr = formatDate(date);
+                    var key = dateStr.replace(/\//g, '-');
+
+                    // 檢查是否已選擇
+                    var isSelected = selectedDates.indexOf(dateStr) !== -1;
+                    var cssClass = isSelected ? 'selected-date' : '';
+
+                    // 取得剩餘位置
+                    var available = monthAvailability[key];
+                    var tooltip = '';
+
+                    if (available !== undefined) {
+                        if (available > 0) {
+                            tooltip = '剩餘 ' + available + ' 個位置';
+                        } else {
+                            tooltip = '已額滿';
+                            cssClass += ' ui-state-disabled';
+                        }
+                    }
+
+                    return [available !== 0, cssClass, tooltip];
+                },
+
+                // 點擊日期時切換選擇狀態
+                onSelect: function (dateText, inst) {
+                    toggleDateSelection(dateText);
+                },
+
+                // 切換月份時重新載入剩餘位置資料
+                onChangeMonthYear: function (year, month, inst) {
+                    loadMonthAvailability(year, month);
+                }
+            });
+        }
+
+        // ── 載入指定月份的剩餘位置資料 ─────────────────────────────
+        function loadMonthAvailability(year, month) {
+            fetch(API_BASE_URL + '?action=getAvailability&year=' + year + '&month=' + month)
+                .then(function (response) { return response.json(); })
+                .then(function (data) {
+                    monthAvailability = data;
+                    // 刷新日曆顯示
+                    $("#datepicker").datepicker("refresh");
+                })
+                .catch(function (error) {
+                    console.error('Failed to load availability:', error);
+                });
+        }
+
+        // ── 切換日期選擇狀態（多選連續日期） ───────────────────────
+        function toggleDateSelection(dateText) {
+            var index = selectedDates.indexOf(dateText);
+
+            if (index === -1) {
+                // 新增選擇
+                selectedDates.push(dateText);
+            } else {
+                // 取消選擇
+                selectedDates.splice(index, 1);
+            }
+
+            // 排序日期
+            selectedDates.sort();
+
+            // 更新顯示
+            updateSelectedDatesDisplay();
+
+            // 刷新日曆以更新 CSS 樣式
+            $("#datepicker").datepicker("refresh");
+        }
+
+        // ── 更新已選日期的顯示橫幅 ─────────────────────────────────
+        function updateSelectedDatesDisplay() {
+            if (selectedDates.length === 0) {
+                $("#dateBanner").hide();
+                $("#formSection").slideUp(200);
+                return;
+            }
+
+            var displayText = '';
+            if (selectedDates.length === 1) {
+                displayText = selectedDates[0];
+            } else {
+                displayText = selectedDates[0] + ' ~ ' + selectedDates[selectedDates.length - 1] +
+                    ' 共 ' + selectedDates.length + ' 天';
+            }
+
+            $("#selectedDateText").text(displayText);
+            $("#dateBanner").show();
+            $("#formSection").slideDown(200);
+        }
+
+        // ── 載入區域配置 ───────────────────────────────────────────
+        function loadAreasConfig() {
+            fetch(API_BASE_URL + '?action=getAreas')
+                .then(function (response) { return response.json(); })
+                .then(function (areas) {
+                    buildAreasUI(areas);
+                })
+                .catch(function (error) {
+                    console.error('Failed to load areas config:', error);
+                    $("#areasContainer").html(
+                        '<div class="text-danger">區域載入失敗，請重新整理頁面。</div>'
+                    );
+                });
+        }
+
+        // ── 動態建立區域 UI ────────────────────────────────────────
+        function buildAreasUI(areas) {
+            areasData = areas;
+            if (!areas || areas.length === 0) {
+                $("#areasContainer").html('<div class="text-muted">目前無可用區域，請聯絡管理員。</div>');
+                return;
+            }
+
+            var html = "";
+            areas.forEach(function (area) {
+                var rainBadge = area.hasRain
+                    ? '<span class="rain-badge rain-yes">有雨棚</span>'
+                    : '<span class="rain-badge rain-no">無雨棚</span>';
+
+                html +=
+                    '<div class="area-row" id="areaRow-' + area.name + '">' +
+                    '<div class="d-flex align-items-center">' +
+                    '<input type="checkbox" class="area-checkbox mr-3"' +
+                    ' id="chk-' + area.name + '"' +
+                    ' data-area="' + area.name + '">' +
+                    '<label class="area-label mb-0" for="chk-' + area.name + '">' +
+                    area.name + rainBadge +
+                    '</label>' +
+                    '</div>' +
+                    '<div class="people-input-row" id="pplRow-' + area.name + '">' +
+                    '<div class="d-flex align-items-center">' +
+                    '<span class="mr-2 text-muted" style="font-size:.9rem;">人數：</span>' +
+                    '<input type="number" class="form-control form-control-sm"' +
+                    ' id="ppl-' + area.name + '" min="1" max="99"' +
+                    ' placeholder="人數" style="width:90px;">' +
+                    '<span class="ml-2">人</span>' +
+                    '</div>' +
+                    '</div>' +
+                    '</div>';
+            });
+
+            $("#areasContainer").html(html);
+
+            // Checkbox 切換事件
+            $(".area-checkbox").on("change", function () {
+                var areaName = $(this).data("area");
+                if ($(this).is(":checked")) {
+                    $("#areaRow-" + areaName).addClass("selected");
+                    $("#pplRow-" + areaName).slideDown(150, function () {
+                        $("#ppl-" + areaName).focus();
+                    });
+                } else {
+                    $("#areaRow-" + areaName).removeClass("selected");
+                    $("#pplRow-" + areaName).slideUp(150);
+                    $("#ppl-" + areaName).val("");
+                }
+                updateCarCount();
+            });
+
+            // 點區域列也可切換 checkbox（除了 input 本身外）
+            $(".area-row").on("click", function (e) {
+                if ($(e.target).is("input[type='number']")) return;
+                var $chk = $(this).find(".area-checkbox");
+                $chk.prop("checked", !$chk.prop("checked")).trigger("change");
+            });
+        }
+
+        // ── 自動更新車數顯示 ───────────────────────────────────────
+        function updateCarCount() {
+            var count = $(".area-checkbox:checked").length;
+            $("#carCountDisplay").text(count + " 車");
+        }
+
+        // ── 送出訂位 ───────────────────────────────────────────────
+        $("#submitBtn").on("click", function () {
+            var name = $("#inputName").val().trim();
+            var phone = $("#inputPhone").val().trim();
+            var carPlate = $("#inputCarPlate").val().trim();
+            var notes = $("#inputNotes").val().trim();
+
+            // 收集已勾選區域
+            var areas = [];
+            $(".area-checkbox:checked").each(function () {
+                var areaName = $(this).data("area");
+                var people = parseInt($("#ppl-" + areaName).val(), 10);
+                areas.push({ name: areaName, people: people });
+            });
+
+            // ── 前端驗證 ──
+            if (selectedDates.length === 0) {
+                showError("請選擇訂位日期"); return;
+            }
+
+            // 驗證日期連續性
+            if (selectedDates.length > 1) {
+                var isConsecutive = true;
+                for (var i = 1; i < selectedDates.length; i++) {
+                    var prev = new Date(selectedDates[i - 1]);
+                    var curr = new Date(selectedDates[i]);
+                    var diffDays = (curr - prev) / (1000 * 60 * 60 * 24);
+                    if (diffDays !== 1) {
+                        isConsecutive = false;
+                        break;
+                    }
+                }
+                if (!isConsecutive) {
+                    showError("預約日期必須為連續的日期"); return;
+                }
+            }
+
+            if (!name) {
+                showError("請填寫姓名"); return;
+            }
+            if (!/^09\d{8}$/.test(phone)) {
+                showError("電話格式錯誤，請填寫台灣手機號碼（09 開頭共 10 碼）"); return;
+            }
+            if (areas.length === 0) {
+                showError("請至少選擇一個區域"); return;
+            }
+            for (var i = 0; i < areas.length; i++) {
+                if (!areas[i].people || isNaN(areas[i].people) || areas[i].people <= 0) {
+                    showError(areas[i].name + " 的人數必須大於 0"); return;
+                }
+            }
+
+            // 檢查 LIFF Token
+            if (!LINE_ID_TOKEN) {
+                showError("請在 LINE App 中開啟此頁面進行預約"); return;
+            }
+
+            hideError();
+            $("#submitBtn").prop("disabled", true).text("送出中…");
+
+            // ── 呼叫後端 API ──
+            var requestData = {
+                idToken: LINE_ID_TOKEN,
+                bookingDates: selectedDates,
+                name: name,
+                phone: phone,
+                carPlate: carPlate,
+                areasJson: JSON.stringify(areas),
+                lineUserId: LINE_USER_ID,
+                notes: notes
+            };
+
+            fetch(API_BASE_URL, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify(requestData)
+            })
+                .then(function (response) { return response.json(); })
+                .then(function (result) {
+                    if (result.success) {
+                        // 成功：隱藏表單，顯示完成訊息
+                        $(".card-section").hide();
+                        $("#submitBtn").hide();
+                        $("#output").html(
+                            '<div class="alert alert-success text-center mt-3" style="border-radius:10px; font-size:1.1rem;">' +
+                            '<strong>✅ ' + result.message + '</strong>' +
+                            '</div>' +
+                            '<button type="button" class="btn btn-primary btn-submit mt-3" onclick="closeWindow()">' +
+                            '關閉' +
+                            '</button>'
+                        );
+                    } else {
+                        showError(result.message);
+                        $("#submitBtn").prop("disabled", false).text("確認送出訂位");
+                    }
+                })
+                .catch(function (error) {
+                    console.error('Submission error:', error);
+                    showError("系統錯誤，請稍後再試。");
+                    $("#submitBtn").prop("disabled", false).text("確認送出訂位");
+                });
+        });
+
+        // ── 關閉視窗 ───────────────────────────────────────────────
+        function closeWindow() {
+            if (typeof liff !== 'undefined' && liff.isInClient()) {
+                liff.closeWindow();
+            } else {
+                window.close();
+            }
+        }
+
+        // ── 工具函式 ───────────────────────────────────────────────
+        function showError(msg) {
+            $("#errorMsg").text(msg).show();
+            $("html, body").animate({ scrollTop: $("#errorMsg").offset().top - 20 }, 250);
+        }
+
+        function hideError() {
+            $("#errorMsg").hide();
+        }
+
+        function formatDate(date) {
+            var year = date.getFullYear();
+            var month = (date.getMonth() + 1);
+            var day = date.getDate();
+            return year + '/' + (month < 10 ? '0' + month : month) + '/' + (day < 10 ? '0' + day : day);
+        }
+    </script>
+
+    <div style="text-align:center; color:#bbb; font-size:0.75rem; padding: 16px 0 24px;">
+        v3.0 · GitHub Pages + Apps Script API · 2026-03-20
+    </div>
+
+</body>
+
+</html>
