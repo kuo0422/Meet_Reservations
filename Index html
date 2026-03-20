@@ -1,7 +1,7 @@
 <script src="https://static.line-scdn.net/liff/edge/2/sdk.js"></script>
 <script>
 async function main() {
-  await liff.init({ liffId: "你的LIFF_ID" });
+  await liff.init({ liffId: "2009523479-cbGjkaQk" });
 
   if (!liff.isLoggedIn()) {
     liff.login();
@@ -10,7 +10,7 @@ async function main() {
 
   const profile = await liff.getProfile();
 
-  const res = await fetch("https://script.google.com/macros/s/你的部署ID/exec", {
+  const res = await fetch("https://script.google.com/macros/s/AKfycby_EmQp4xWX3sdT6e2id3PJ-WQcEO5vVBV7rZMOCzQ/dev", {
     method: "POST",
     headers: {
       "Content-Type": "text/plain;charset=utf-8"
