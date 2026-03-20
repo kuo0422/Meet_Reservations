@@ -518,31 +518,35 @@
         var monthAvailability = {}; // 當前月份的剩餘位置資料
         var LINE_USER_ID = "";
         var LINE_ID_TOKEN = "";
+        var LINE_DISPLAY_NAME = "";
 
         // ════════════════════════════════════════════════════════════
         // LIFF 初始化與頁面啟動
         // ════════════════════════════════════════════════════════════
 
-        if (LIFF_ID && /Line\//.test(navigator.userAgent)) {
+        //if (LIFF_ID && /Line\//.test(navigator.userAgent)) {
             // 在 LINE App 內：初始化 LIFF
-            var liffTimer = setTimeout(function () {
-                console.warn('LIFF timeout, proceeding without LIFF');
-                initPage();
-            }, 3000);
-
+            // var liffTimer = setTimeout(function () {
+            //     console.warn('LIFF timeout, proceeding without LIFF');
+            //     initPage();
+            // }, 3000);
+console.log('start enter liff init');
             liff.init({ liffId: LIFF_ID })
                 .then(function () {
-                    clearTimeout(liffTimer);
+                    // clearTimeout(liffTimer);
                     if (!liff.isLoggedIn()) {
                         liff.login();
                         return;
                     }
+                    console.log('');
                     return liff.getProfile();
                 })
                 .then(function (profile) {
                     if (profile) {
+                        console.log('LIFF Profile:', profile);
                         LINE_USER_ID = profile.userId;
                         LINE_ID_TOKEN = liff.getIDToken();
+                        LINE_DISPLAY_NAME = profile.displayName || "";
                         console.log('LIFF initialized successfully');
                     }
                     initPage();
@@ -552,16 +556,21 @@
                     clearTimeout(liffTimer);
                     initPage();
                 });
-        } else {
-            // 一般瀏覽器：不使用 LIFF，直接進頁面
-            $(function () { initPage(); });
-        }
+        // } else {
+        //     // 一般瀏覽器：不使用 LIFF，直接進頁面
+        //     $(function () { initPage(); });
+        // }
 
         // ════════════════════════════════════════════════════════════
         // 頁面初始化
         // ════════════════════════════════════════════════════════════
         function initPage() {
             $("#loadingOverlay").fadeOut(300);
+
+            // 帶入 LINE 使用者名稱
+            if (LINE_DISPLAY_NAME) {
+                $("#inputName").val(LINE_DISPLAY_NAME);
+            }
 
             // 初始化日期選擇器（多選模式）
             initDatepicker();
