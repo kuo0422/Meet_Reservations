@@ -533,11 +533,22 @@
 console.log('start enter liff init');
             liff.init({ liffId: LIFF_ID })
                 .then(function () {
+                    
                     // clearTimeout(liffTimer);
                     if (!liff.isLoggedIn()) {
+                        sessionStorage.setItem('liff_refreshed', '1');
                         liff.login();
                         return;
                     }
+
+                    // 第一次進來（沒有 flag）→ 登出再登入，強制新 session
+                    if (!sessionStorage.getItem('liff_refreshed')) {
+                        sessionStorage.setItem('liff_refreshed', '1');
+                        liff.logout();
+                        liff.login(); // 觸發跳轉，回來後 session 是新的
+                        return;
+                    }
+
                     console.log('');
                     return liff.getProfile();
                 })
