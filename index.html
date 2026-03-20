@@ -509,7 +509,7 @@
         // ════════════════════════════════════════════════════════════
         // 配置區域
         // ════════════════════════════════════════════════════════════
-        const API_BASE_URL = 'https://script.google.com/macros/s/AKfycbwcXvqULzN97iobbpaAhZvEgdDC3RvRcMJgNb1ZeDrLf-T0t1RcNAgKTHSrrDjHGGDy/exec';
+        const API_BASE_URL = 'https://script.google.com/macros/s/AKfycbzJvlApNqQOD64-1GT6U0IySDOigyS7K3k8RYxcPe097WKpJnhJ724vBS84oZkEFVVM/exec';
         const LIFF_ID = '2009523479-cbGjkaQk';
 
         // ── 全域變數 ───────────────────────────────────────────────
@@ -546,6 +546,7 @@ console.log('start enter liff init');
                         console.log('LIFF Profile:', profile);
                         LINE_USER_ID = profile.userId;
                         LINE_ID_TOKEN = liff.getIDToken();
+                        console.log("LINE_ID_TOKEN=", LINE_ID_TOKEN);
                         LINE_DISPLAY_NAME = profile.displayName || "";
                         console.log('LIFF initialized successfully');
                     }
@@ -852,7 +853,7 @@ console.log('start enter liff init');
             fetch(API_BASE_URL, {
                 method: 'POST',
                 headers: {
-                    'Content-Type': 'text/plain'
+                    'Content-Type': 'application/json'
                 },
                 body: JSON.stringify(requestData)
             })
