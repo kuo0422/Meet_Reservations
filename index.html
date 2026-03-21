@@ -61,12 +61,13 @@
             text-align: center;
             width: 14%;
             position: relative;
+            vertical-align: top;
         }
 
         .ui-datepicker td a,
         .ui-datepicker td span {
             text-align: center;
-            padding: .4em;
+            padding: .4em .2em;
             display: block;
             position: relative;
         }
@@ -94,25 +95,59 @@
 
         /* 剩餘位置顯示 */
         .availability-badge {
-            position: absolute;
-            bottom: 2px;
-            right: 2px;
-            font-size: 0.65rem;
+            display: block;
+            text-align: center;
+            margin: 2px auto 3px;
+            font-size: 0.6rem;
             background: #28a745;
             color: white;
-            border-radius: 3px;
-            padding: 1px 3px;
+            border-radius: 8px;
+            padding: 1px 5px;
             font-weight: bold;
             pointer-events: none;
+            white-space: nowrap;
+            line-height: 1.5;
         }
 
         .availability-badge.low {
-            background: #ffc107;
-            color: #333;
+            background: #e07b00;
+            color: #fff;
         }
 
         .availability-badge.full {
             background: #dc3545;
+        }
+
+        /* 更新剩餘數量按鈕 */
+        .reload-avail-btn {
+            background: none;
+            border: 1px solid #654b24;
+            color: #654b24;
+            border-radius: 50%;
+            width: 28px;
+            height: 28px;
+            font-size: 1.1rem;
+            line-height: 1;
+            padding: 0;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            flex-shrink: 0;
+            transition: background 0.2s;
+        }
+
+        .reload-avail-btn:hover:not(:disabled) {
+            background: #fdf6ec;
+        }
+
+        .reload-avail-btn:disabled {
+            opacity: 0.45;
+            cursor: default;
+        }
+
+        .reload-avail-btn.spinning {
+            animation: spin 0.8s linear infinite;
         }
 
         /* 日期範圍（中間日期） */
@@ -121,6 +156,18 @@
             background: #e8d5bf !important;
             border-color: #c9a87a !important;
             color: #654b24 !important;
+        }
+
+        /* 中間日期的剩餘數量徽章強制保持原色 */
+        .ui-datepicker td.range-date .availability-badge {
+            background: #28a745 !important;
+            color: #fff !important;
+        }
+        .ui-datepicker td.range-date .availability-badge.low {
+            background: #e07b00 !important;
+        }
+        .ui-datepicker td.range-date .availability-badge.full {
+            background: #dc3545 !important;
         }
 
         /* Hover 預覽範圍 */
@@ -450,7 +497,10 @@
 
         <!-- ══ 1. 訂位日期（支援多選連續日期） ═══════════════════════ -->
         <div class="card-section">
-            <div class="section-title">① 選擇訂位日期</div>
+            <div class="section-title d-flex justify-content-between align-items-center">
+                <span>① 選擇訂位日期</span>
+                <button type="button" id="reloadAvailBtn" class="reload-avail-btn" title="更新剩餘數量">↻</button>
+            </div>
             <div id="datepicker"></div>
             <div id="rangeStatus"></div>
             <div class="date-selected-banner" id="dateBanner">
@@ -526,14 +576,17 @@
         // ════════════════════════════════════════════════════════════
         // 配置區域
         // ════════════════════════════════════════════════════════════
-        const API_BASE_URL = 'https://script.google.com/macros/s/AKfycbyLIJLFirI6Bc1eG2bMf5NOrTVqN3RBmJUjNemQpnP7hpwKZuxxsnwP40MkvVM43lJU/exec';
+        const API_BASE_URL = 'https://script.google.com/macros/s/AKfycbzvKVk1mOxQ71bpUxC1az9N1GusTRSk90EoYs2M6CesizabaxuBJiSKDJMjgUP7ynr6/exec';
         const LIFF_ID = '2009523479-cbGjkaQk';
 
         // ── 全域變數 ───────────────────────────────────────────────
         var areasData = [];
         var selectedDates = []; // 已選擇的日期陣列（字串格式：yyyy/MM/dd）
         var rangeStart = null;   // 第一次點擊的起始日期（字串），null 表示尚未選取
-        var monthAvailability = {}; // 當前月份的剩餘位置資料
+        var monthAvailability = {}; // 剩餘位置資料（含預載的 3 個月）
+        var isRefreshing = false;   // 防止 datepicker refresh 觸發 onSelect
+        var initYear = 0;           // 起始年（供 reload 按鈕使用）
+        var initMonth = 0;          // 起始月（供 reload 按鈕使用）
         var LINE_USER_ID = "";
         var LINE_ID_TOKEN = "";
         var LINE_DISPLAY_NAME = "";
@@ -554,44 +607,46 @@
             }
         }
 
-        liff.init({ liffId: LIFF_ID })
-            .then(function () {
+        // liff.init({ liffId: LIFF_ID })
+        //     .then(function () {
 
-                if (!liff.isLoggedIn()) {
-                    //sessionStorage.setItem('liff_refreshed', '1');
-                    liff.login();
-                    return new Promise(() => {}); // 永不 resolve，阻止後續 .then 執行
-                }
+        //         if (!liff.isLoggedIn()) {
+        //             //sessionStorage.setItem('liff_refreshed', '1');
+        //             liff.login();
+        //             return new Promise(() => {}); // 永不 resolve，阻止後續 .then 執行
+        //         }
 
-                // 第一次進來（沒有 flag）→ 登出再登入，強制新 session
-                // if (!sessionStorage.getItem('liff_refreshed')) {
-                //     sessionStorage.setItem('liff_refreshed', '1');
-                //     liff.logout();
-                //     liff.login(); // 觸發跳轉，回來後 session 是新的
-                //     return new Promise(() => {}); // 永不 resolve，阻止後續 .then 執行
-                // }
+        //         // 第一次進來（沒有 flag）→ 登出再登入，強制新 session
+        //         // if (!sessionStorage.getItem('liff_refreshed')) {
+        //         //     sessionStorage.setItem('liff_refreshed', '1');
+        //         //     liff.logout();
+        //         //     liff.login(); // 觸發跳轉，回來後 session 是新的
+        //         //     return new Promise(() => {}); // 永不 resolve，阻止後續 .then 執行
+        //         // }
 
-                return liff.getProfile();
-            })
-            .then(function (profile) {
-                if (profile) {
-                    LINE_USER_ID = profile.userId;
-                    LINE_ID_TOKEN = liff.getIDToken();
-                    LINE_DISPLAY_NAME = profile.displayName || "";
+        //         return liff.getProfile();
+        //     })
+        //     .then(function (profile) {
+        //         if (profile) {
+        //             LINE_USER_ID = profile.userId;
+        //             LINE_ID_TOKEN = liff.getIDToken();
+        //             LINE_DISPLAY_NAME = profile.displayName || "";
 
-                    // 若 idToken 已過期，登出並重新登入以取得新 token
-                    if (isTokenExpired(LINE_ID_TOKEN)) {
-                        liff.logout();
-                        liff.login();
-                        return new Promise(() => {}); // 永不 resolve，阻止後續 .then 執行
-                    }
-                }
-                initPage();
-            })
-            .catch(function (error) {
-                console.error('LIFF init error:', error);
-                initPage();
-            });
+        //             // 若 idToken 已過期，登出並重新登入以取得新 token
+        //             if (isTokenExpired(LINE_ID_TOKEN)) {
+        //                 liff.logout();
+        //                 liff.login();
+        //                 return new Promise(() => {}); // 永不 resolve，阻止後續 .then 執行
+        //             }
+        //         }
+        //         initPage();
+        //     })
+        //     .catch(function (error) {
+        //         console.error('LIFF init error:', error);
+        //         initPage();
+        //     });
+
+        initPage();
 
         // ════════════════════════════════════════════════════════════
         // 頁面初始化
@@ -609,6 +664,11 @@
 
             // 載入區域配置
             loadAreasConfig();
+
+            // 更新剩餘數量按鈕
+            $("#reloadAvailBtn").on("click", function () {
+                loadAvailability();
+            });
         }
 
         // ── 初始化日期選擇器（支援多選連續日期） ───────────────────
@@ -619,8 +679,10 @@
             var currentYear = today.getFullYear();
             var currentMonth = today.getMonth() + 1;
 
-            // 先載入本月份的剩餘位置資料
-            loadMonthAvailability(currentYear, currentMonth);
+            // 儲存起始年月供 reload 按鈕使用，並載入剩餘數量
+            initYear = currentYear;
+            initMonth = currentMonth;
+            loadAvailability();
 
             $("#datepicker").datepicker({
                 dateFormat: "yy/mm/dd",
@@ -650,7 +712,8 @@
                     }
 
                     // 取得剩餘位置
-                    var available = monthAvailability[key];
+                    var dayData = monthAvailability[key];
+                    var available = (dayData !== undefined) ? dayData.remain : undefined;
                     var tooltip = '';
 
                     if (available !== undefined) {
@@ -667,12 +730,17 @@
 
                 // 點擊日期時切換選擇狀態
                 onSelect: function (dateText, inst) {
+                    if (isRefreshing) return;
+                    if (!dateText || !/^\d{4}\/\d{2}\/\d{2}$/.test(dateText)) return;
                     toggleDateSelection(dateText);
                 },
 
-                // 切換月份時重新載入剩餘位置資料
+                // 切換月份時重繪徽章（不呼叫 API，資料已預載）
                 onChangeMonthYear: function (year, month, inst) {
-                    loadMonthAvailability(year, month);
+                    setTimeout(function () {
+                        updateCalendarSelection();
+                        renderAvailabilityBadges();
+                    }, 0);
                 }
             });
 
@@ -687,23 +755,140 @@
             });
         }
 
-        // ── 載入指定月份的剩餘位置資料 ─────────────────────────────
-        function loadMonthAvailability(year, month) {
-            fetch(API_BASE_URL + '?action=getAvailability&year=' + year + '&month=' + month)
+        // ── 載入全部剩餘位置資料（單次 API，後端依 config 决定涵蓋月份）────
+        function loadAvailability() {
+            var $btn = $("#reloadAvailBtn");
+            $btn.prop("disabled", true).addClass("spinning");
+
+            fetch(API_BASE_URL + '?action=getAvailability')
                 .then(function (response) { return response.json(); })
                 .then(function (data) {
                     monthAvailability = data;
-                    // 刷新日曆顯示
+                    isRefreshing = true;
                     $("#datepicker").datepicker("refresh");
+                    isRefreshing = false;
+                    updateCalendarSelection();
+                    renderAvailabilityBadges();
+                    filterAreasBySelectedDates();
+                    $btn.prop("disabled", false).removeClass("spinning");
                 })
                 .catch(function (error) {
                     console.error('Failed to load availability:', error);
+                    $btn.prop("disabled", false).removeClass("spinning");
                 });
+        }
+
+        // ── 在月曆日期格上顯示剩餘位置徽章 ─────────────────────
+        function renderAvailabilityBadges() {
+            var monthNames = ["1月", "2月", "3月", "4月", "5月", "6月",
+                "7月", "8月", "9月", "10月", "11月", "12月"];
+            var yearText = $("#datepicker .ui-datepicker-year").text().trim();
+            var monthText = $("#datepicker .ui-datepicker-month").text().trim();
+            var year = parseInt(yearText, 10);
+            var month = monthNames.indexOf(monthText);
+            if (isNaN(year) || month === -1) return;
+
+            var today = new Date();
+            today.setHours(0, 0, 0, 0);
+
+            $("#datepicker .ui-datepicker-calendar td").each(function () {
+                var $td = $(this);
+                var $link = $td.find("a, span").first();
+                if ($link.length === 0) return;
+
+                // 移除舊徽章（徽章在 $td 上）
+                $td.find(".availability-badge").remove();
+
+                // 只讀 a 元素的直接文字節點，不被子元素影響
+                var dayText = '';
+                $link.contents().each(function () {
+                    if (this.nodeType === 3) dayText += this.nodeValue;
+                });
+                var day = parseInt(dayText.trim(), 10);
+                if (isNaN(day) || day <= 0) return;
+
+                // 只顯示今天之後的日期
+                var dateObj = new Date(year, month, day);
+                if (dateObj <= today) return;
+
+                var dateStr = formatDate(new Date(year, month, day));
+                var key = dateStr.replace(/\//g, '-');
+                var dayData = monthAvailability[key];
+                var available = (dayData !== undefined) ? dayData.remain : undefined;
+                if (available === undefined) return;
+
+                var badgeClass = "availability-badge";
+                var badgeText;
+                if (available <= 0) {
+                    badgeClass += " full";
+                    badgeText = "滿";
+                } else if (available <= 3) {
+                    badgeClass += " low";
+                    badgeText = available;
+                } else {
+                    badgeText = available;
+                }
+
+                // 徽章掛在 $td 上，不放入 <a> 避免 jQuery UI 讀到徽章數字
+                $td.append('<span class="' + badgeClass + '">' + badgeText + '</span>');
+            });
+        }
+
+        // ── 直接更新月曆 TD 的選取樣式（不觸發 datepicker refresh）────
+        function updateCalendarSelection() {
+            var monthNames = ["1月", "2月", "3月", "4月", "5月", "6月",
+                "7月", "8月", "9月", "10月", "11月", "12月"];
+            var yearText = $("#datepicker .ui-datepicker-year").text().trim();
+            var monthText = $("#datepicker .ui-datepicker-month").text().trim();
+            var year = parseInt(yearText, 10);
+            var month = monthNames.indexOf(monthText);
+            if (isNaN(year) || month === -1) return;
+
+            $("#datepicker .ui-datepicker-calendar td").each(function () {
+                var $td = $(this);
+                $td.removeClass('selected-date range-date');
+
+                var $link = $td.find("a, span").first();
+                if (!$link.length) return;
+
+                // 只讀直接文字節點，避免把徽章數字混入
+                var dayText = '';
+                $link.contents().each(function () {
+                    if (this.nodeType === 3) dayText += this.nodeValue;
+                });
+                var day = parseInt(dayText.trim(), 10);
+                if (isNaN(day) || day <= 0) return;
+
+                var dateStr = formatDate(new Date(year, month, day));
+                var idx = selectedDates.indexOf(dateStr);
+                if (idx === -1) return;
+
+                if (selectedDates.length === 1 || idx === 0 || idx === selectedDates.length - 1) {
+                    $td.addClass('selected-date');
+                } else {
+                    $td.addClass('range-date');
+                }
+            });
+        }
+
+        // ── 清空區域選擇（日期重選時使用）─────────────────────────
+        function clearAreaSelections() {
+            $(".area-checkbox, .zone-checkbox, .area-group-checkbox").prop("checked", false);
+            $(".area-row, .area-group-row").removeClass("selected");
+            $(".people-input-row").hide();
+            $(".people-input-inline").hide();
+            $(".zone-options-row").hide();
+            $("input[id^='ppl-']").val("");
+            updateCarCount();
         }
 
         // ── 切換日期選擇狀態（範圍選取：第1次點擊=起始，第2次點擊=結束）──
         function toggleDateSelection(dateText) {
             if (rangeStart === null) {
+                // 若已有選取日期，表示重新選擇，先清空區域選擇
+                if (selectedDates.length > 0) {
+                    clearAreaSelections();
+                }
                 // 第一次點擊：設為起始日期
                 rangeStart = dateText;
                 selectedDates = [dateText];
@@ -731,7 +916,12 @@
 
             selectedDates.sort();
             updateSelectedDatesDisplay();
-            $("#datepicker").datepicker("refresh");
+            filterAreasBySelectedDates();
+            // jQuery UI 在 onSelect 結束後仍會做 DOM 後處理，需延後覆寫
+            setTimeout(function () {
+                updateCalendarSelection();
+                renderAvailabilityBadges();
+            }, 0);
         }
 
         // ── 更新已選日期的顯示橫幅 ─────────────────────────────────
@@ -753,6 +943,66 @@
             $("#selectedDateText").text(displayText);
             $("#dateBanner").show();
             $("#formSection").slideDown(200);
+        }
+
+        // ── 依選取日期過濾可用區域（所有選取日期都未被佔用才能選）──
+        function filterAreasBySelectedDates() {
+            if (!areasData || areasData.length === 0) return;
+
+            // 收集所有選取日期中已被使用的區域（取聯集）
+            var usedSet = {};
+            selectedDates.forEach(function (dateStr) {
+                var key = dateStr.replace(/\//g, '-');
+                var dayData = monthAvailability[key];
+                if (dayData && dayData.used) {
+                    dayData.used.forEach(function (areaName) {
+                        usedSet[areaName] = true;
+                    });
+                }
+            });
+
+            areasData.forEach(function (area) {
+                if (!area.item || area.item.length === 0) {
+                    // 單一區域：整個 row 依是否被用到顯示/隱藏
+                    var blocked = !!usedSet[area.name];
+                    var $row = $("#areaRow-" + area.name);
+                    if (blocked) {
+                        // 取消勾選並隱藏
+                        var $chk = $("#chk-" + area.name);
+                        if ($chk.is(":checked")) $chk.prop("checked", false).trigger("change");
+                        $row.hide();
+                    } else {
+                        $row.show();
+                    }
+                } else {
+                    // 群組區域：逐一檢查子區域
+                    var visibleCount = 0;
+                    area.item.forEach(function (item) {
+                        var fullName = area.name + '-' + item.name;
+                        var blocked = !!usedSet[fullName];
+                        var $zoneItem = $("#zoneItem-" + fullName);
+                        if (blocked) {
+                            var $chk = $("#chk-" + fullName);
+                            if ($chk.is(":checked")) $chk.prop("checked", false).trigger("change");
+                            $zoneItem.hide();
+                        } else {
+                            $zoneItem.show();
+                            visibleCount++;
+                        }
+                    });
+                    // 若子區域全部被佔用，隱藏整個群組
+                    var $groupRow = $("#areaGroupRow-" + area.name);
+                    if (visibleCount === 0) {
+                        var $chkGroup = $("#chkGroup-" + area.name);
+                        if ($chkGroup.is(":checked")) $chkGroup.prop("checked", false).trigger("change");
+                        $groupRow.hide();
+                    } else {
+                        $groupRow.show();
+                    }
+                }
+            });
+
+            updateCarCount();
         }
 
         // ── 載入區域配置 ───────────────────────────────────────────
@@ -1062,7 +1312,12 @@
         function getDateFromTd(td) {
             var $link = $(td).find("a");
             if ($link.length === 0) return null;
-            var day = parseInt($link.text(), 10);
+            // 只讀直接文字節點，避免把徽章數字混入
+            var dayText = '';
+            $link.contents().each(function () {
+                if (this.nodeType === 3) dayText += this.nodeValue;
+            });
+            var day = parseInt(dayText.trim(), 10);
             if (isNaN(day)) return null;
 
             var yearText = $("#datepicker .ui-datepicker-year").text().trim();
