@@ -172,7 +172,8 @@
             background: #fdf6ec;
         }
 
-        .area-checkbox {
+        .area-checkbox,
+        .area-group-checkbox {
             width: 22px;
             height: 22px;
             cursor: pointer;
@@ -215,6 +216,45 @@
         .people-input-row input[type="number"] {
             width: 88px;
             display: inline-block;
+        }
+
+        /* ── 子區域選項 ── */
+        .zone-options-row {
+            margin-top: 10px;
+            padding-top: 8px;
+            border-top: 1px solid #eee;
+        }
+
+        .zone-item {
+            display: flex;
+            align-items: center;
+            flex-wrap: wrap;
+            padding: 7px 2px;
+            cursor: pointer;
+        }
+
+        .zone-item + .zone-item {
+            border-top: 1px solid #f5f5f5;
+        }
+
+        .zone-checkbox {
+            width: 22px;
+            height: 22px;
+            cursor: pointer;
+            flex-shrink: 0;
+        }
+
+        .zone-label {
+            font-size: 1rem;
+            font-weight: 500;
+            cursor: pointer;
+            min-width: 52px;
+            margin-bottom: 0;
+        }
+
+        .people-input-inline {
+            display: none;
+            align-items: center;
         }
 
         /* ── 車數顯示 ── */
@@ -486,7 +526,7 @@
         // ════════════════════════════════════════════════════════════
         // 配置區域
         // ════════════════════════════════════════════════════════════
-        const API_BASE_URL = 'https://script.google.com/macros/s/AKfycbxzt4hEpjBdePVuQf8dLGTX7c-Vu8NptRyCpG7ES12o8lDiwSIMn5XpuvrnYIYhnkft/exec';
+        const API_BASE_URL = 'https://script.google.com/macros/s/AKfycbyLIJLFirI6Bc1eG2bMf5NOrTVqN3RBmJUjNemQpnP7hpwKZuxxsnwP40MkvVM43lJU/exec';
         const LIFF_ID = '2009523479-cbGjkaQk';
 
         // ── 全域變數 ───────────────────────────────────────────────
@@ -744,32 +784,72 @@
                     ? '<span class="rain-badge rain-yes">有雨棚</span>'
                     : '<span class="rain-badge rain-no">無雨棚</span>';
 
-                html +=
-                    '<div class="area-row" id="areaRow-' + area.name + '">' +
-                    '<div class="d-flex align-items-center">' +
-                    '<input type="checkbox" class="area-checkbox mr-3"' +
-                    ' id="chk-' + area.name + '"' +
-                    ' data-area="' + area.name + '">' +
-                    '<label class="area-label mb-0" for="chk-' + area.name + '">' +
-                    area.name + rainBadge +
-                    '</label>' +
-                    '</div>' +
-                    '<div class="people-input-row" id="pplRow-' + area.name + '">' +
-                    '<div class="d-flex align-items-center">' +
-                    '<span class="mr-2 text-muted" style="font-size:.9rem;">人數：</span>' +
-                    '<input type="number" class="form-control form-control-sm"' +
-                    ' id="ppl-' + area.name + '" min="1" max="99"' +
-                    ' placeholder="人數" style="width:90px;">' +
-                    '<span class="ml-2">人</span>' +
-                    '</div>' +
-                    '</div>' +
-                    '</div>';
+                if (!area.item || area.item.length === 0) {
+                    // ── 單一區域：原始樣式 ──────────────────────────
+                    html +=
+                        '<div class="area-row" id="areaRow-' + area.name + '">' +
+                        '<div class="d-flex align-items-center">' +
+                        '<input type="checkbox" class="area-checkbox mr-3"' +
+                        ' id="chk-' + area.name + '"' +
+                        ' data-area="' + area.name + '">' +
+                        '<label class="area-label mb-0" for="chk-' + area.name + '">' +
+                        area.name + rainBadge +
+                        '</label>' +
+                        '</div>' +
+                        '<div class="people-input-row" id="pplRow-' + area.name + '">' +
+                        '<div class="d-flex align-items-center">' +
+                        '<span class="mr-2 text-muted" style="font-size:.9rem;">人數：</span>' +
+                        '<input type="number" class="form-control form-control-sm"' +
+                        ' id="ppl-' + area.name + '" min="1" max="99"' +
+                        ' placeholder="人數" style="width:90px;">' +
+                        '<span class="ml-2">人</span>' +
+                        '</div>' +
+                        '</div>' +
+                        '</div>';
+                } else {
+                    // ── 多子區：群組可展開樣式 ──────────────────────
+                    var groupName = area.name;
+                    html +=
+                        '<div class="area-row area-group-row" id="areaGroupRow-' + groupName + '"' +
+                        ' data-group="' + groupName + '">' +
+                        '<div class="d-flex align-items-center">' +
+                        '<input type="checkbox" class="area-group-checkbox mr-3"' +
+                        ' id="chkGroup-' + groupName + '"' +
+                        ' data-group="' + groupName + '">' +
+                        '<label class="area-label mb-0" for="chkGroup-' + groupName + '">' +
+                        groupName + rainBadge +
+                        '</label>' +
+                        '</div>' +
+                        '<div class="zone-options-row" id="zonesRow-' + groupName + '" style="display:none;">';
+
+                    area.item.forEach(function (item) {
+                        var fullName = groupName + '-' + item.name;
+                        html +=
+                            '<div class="zone-item" id="zoneItem-' + fullName + '">' +
+                            '<input type="checkbox" class="area-checkbox zone-checkbox mr-2"' +
+                            ' id="chk-' + fullName + '"' +
+                            ' data-area="' + fullName + '"' +
+                            ' data-group="' + groupName + '">' +
+                            '<label class="zone-label mr-3" for="chk-' + fullName + '">' +
+                            item.name + '</label>' +
+                            '<div class="people-input-inline" id="pplInline-' + fullName + '">' +
+                            '<span class="text-muted mr-1" style="font-size:.9rem;">人數：</span>' +
+                            '<input type="number" class="form-control form-control-sm"' +
+                            ' id="ppl-' + fullName + '" min="1" max="99"' +
+                            ' placeholder="人數" style="width:80px;">' +
+                            '<span class="ml-1">人</span>' +
+                            '</div>' +
+                            '</div>';
+                    });
+
+                    html += '</div></div>';
+                }
             });
 
             $("#areasContainer").html(html);
 
-            // Checkbox 切換事件
-            $(".area-checkbox").on("change", function () {
+            // ── 單一區域 checkbox 事件 ────────────────────────────
+            $(".area-checkbox:not(.zone-checkbox)").on("change", function () {
                 var areaName = $(this).data("area");
                 if ($(this).is(":checked")) {
                     $("#areaRow-" + areaName).addClass("selected");
@@ -784,11 +864,66 @@
                 updateCarCount();
             });
 
-            // 點區域列也可切換 checkbox（除了 input 本身外）
-            $(".area-row").on("click", function (e) {
+            // ── 子區域 checkbox 事件 ──────────────────────────────
+            $(".zone-checkbox").on("change", function () {
+                var areaName = $(this).data("area");
+                var $pplInline = $("#pplInline-" + areaName);
+                if ($(this).is(":checked")) {
+                    $pplInline.css("display", "flex");
+                    $("#ppl-" + areaName).focus();
+                } else {
+                    $pplInline.hide();
+                    $("#ppl-" + areaName).val("");
+                }
+                updateCarCount();
+            });
+
+            // ── 群組 checkbox 事件 ───────────────────────────────
+            $(".area-group-checkbox").on("change", function () {
+                var groupName = $(this).data("group");
+                var $zonesRow = $("#zonesRow-" + groupName);
+                if ($(this).is(":checked")) {
+                    $("#areaGroupRow-" + groupName).addClass("selected");
+                    $zonesRow.slideDown(150);
+                } else {
+                    // 取消全部子區域
+                    $zonesRow.find(".zone-checkbox").each(function () {
+                        if ($(this).is(":checked")) {
+                            $(this).prop("checked", false).trigger("change");
+                        }
+                    });
+                    $("#areaGroupRow-" + groupName).removeClass("selected");
+                    $zonesRow.slideUp(150);
+                }
+            });
+
+            // ── 點擊單一區域列切換 checkbox ───────────────────────
+            $(".area-row:not(.area-group-row)").on("click", function (e) {
                 if ($(e.target).is("input[type='number']")) return;
                 if ($(e.target).is("input[type='checkbox']")) return;
+                if ($(e.target).is("label")) return;
                 var $chk = $(this).find(".area-checkbox");
+                $chk.prop("checked", !$chk.prop("checked")).trigger("change");
+            });
+
+            // ── 點擊群組列標題切換群組 checkbox ──────────────────
+            $(".area-group-row").on("click", function (e) {
+                if ($(e.target).closest(".zone-item").length) return;
+                if ($(e.target).is("input[type='number']")) return;
+                if ($(e.target).is("input[type='checkbox']")) return;
+                if ($(e.target).is("label")) return;
+                var groupName = $(this).data("group");
+                var $chk = $("#chkGroup-" + groupName);
+                $chk.prop("checked", !$chk.prop("checked")).trigger("change");
+            });
+
+            // ── 點擊子區域列切換子 checkbox ──────────────────────
+            $(".zone-item").on("click", function (e) {
+                if ($(e.target).is("input[type='number']")) return;
+                if ($(e.target).is("input[type='checkbox']")) return;
+                if ($(e.target).is("label")) return;
+                e.stopPropagation();
+                var $chk = $(this).find(".zone-checkbox");
                 $chk.prop("checked", !$chk.prop("checked")).trigger("change");
             });
         }
