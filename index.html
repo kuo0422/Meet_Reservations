@@ -502,41 +502,54 @@
         // LIFF 初始化與頁面啟動
         // ════════════════════════════════════════════════════════════
 
+        // ── 判斷 JWT idToken 是否過期 ────────────────────────────
+        function isTokenExpired(token) {
+            if (!token) return true;
+            try {
+                var payload = JSON.parse(atob(token.split('.')[1]));
+                // exp 為秒，Date.now() 為毫秒
+                return payload.exp * 1000 < Date.now();
+            } catch (e) {
+                return true;
+            }
+        }
+
         liff.init({ liffId: LIFF_ID })
             .then(function () {
 
-                // clearTimeout(liffTimer);
                 if (!liff.isLoggedIn()) {
-                    sessionStorage.setItem('liff_refreshed', '1');
+                    //sessionStorage.setItem('liff_refreshed', '1');
                     liff.login();
-                    return;
+                    return new Promise(() => {}); // 永不 resolve，阻止後續 .then 執行
                 }
 
                 // 第一次進來（沒有 flag）→ 登出再登入，強制新 session
-                if (!sessionStorage.getItem('liff_refreshed')) {
-                    sessionStorage.setItem('liff_refreshed', '1');
-                    liff.logout();
-                    liff.login(); // 觸發跳轉，回來後 session 是新的
-                    return;
-                }
+                // if (!sessionStorage.getItem('liff_refreshed')) {
+                //     sessionStorage.setItem('liff_refreshed', '1');
+                //     liff.logout();
+                //     liff.login(); // 觸發跳轉，回來後 session 是新的
+                //     return new Promise(() => {}); // 永不 resolve，阻止後續 .then 執行
+                // }
 
-                console.log('');
                 return liff.getProfile();
             })
             .then(function (profile) {
                 if (profile) {
-                    console.log('LIFF Profile:', profile);
                     LINE_USER_ID = profile.userId;
                     LINE_ID_TOKEN = liff.getIDToken();
-                    console.log("LINE_ID_TOKEN=", LINE_ID_TOKEN);
                     LINE_DISPLAY_NAME = profile.displayName || "";
-                    console.log('LIFF initialized successfully');
+
+                    // 若 idToken 已過期，登出並重新登入以取得新 token
+                    if (isTokenExpired(LINE_ID_TOKEN)) {
+                        liff.logout();
+                        liff.login();
+                        return new Promise(() => {}); // 永不 resolve，阻止後續 .then 執行
+                    }
                 }
                 initPage();
             })
             .catch(function (error) {
                 console.error('LIFF init error:', error);
-                clearTimeout(liffTimer);
                 initPage();
             });
 
