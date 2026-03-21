@@ -115,6 +115,35 @@
             background: #dc3545;
         }
 
+        /* 日期範圍（中間日期） */
+        .ui-datepicker td.range-date>a,
+        .ui-datepicker td.range-date>span {
+            background: #e8d5bf !important;
+            border-color: #c9a87a !important;
+            color: #654b24 !important;
+        }
+
+        /* Hover 預覽範圍 */
+        .ui-datepicker td.hover-range-preview>a,
+        .ui-datepicker td.hover-range-preview>span {
+            background: #f5ece0 !important;
+            border-color: #d9bb96 !important;
+            color: #654b24 !important;
+        }
+
+        /* 範圍選取狀態提示 */
+        #rangeStatus {
+            text-align: center;
+            padding: 8px 12px;
+            margin-top: 10px;
+            border-radius: 6px;
+            font-size: 0.9rem;
+            background: #fdf6ec;
+            color: #654b24;
+            border: 1px dashed #654b24;
+            display: none;
+        }
+
         /* 已選日期橫幅 */
         .date-selected-banner {
             background: #654b24;
@@ -329,59 +358,6 @@
             }
         }
 
-        @media (min-width: 768px) {
-            .page-title {
-                font-size: 2.8rem;
-            }
-
-            .area-label {
-                font-size: 2.45rem;
-            }
-
-            .section-title {
-                font-size: 2.35rem;
-            }
-
-            .form-control {
-                font-size: 2.35rem;
-                height: auto;
-                padding: 10px 14px;
-            }
-
-            label {
-                font-size: 2.3rem;
-            }
-
-            .btn-submit {
-                font-size: 2.45rem;
-                padding: 14px;
-            }
-
-            .car-count-value {
-                font-size: 2.65rem;
-            }
-
-            .rain-badge {
-                font-size: 2rem;
-            }
-
-            .card-section {
-                padding: 16px 12px;
-            }
-
-            .container {
-                padding-left: 8px !important;
-                padding-right: 8px !important;
-            }
-
-            small {
-                font-size: 2.05rem;
-            }
-
-            .container {
-                max-width: 900px;
-            }
-        }
 
         /* ── Loading 遮罩 ── */
         #loadingOverlay {
@@ -434,8 +410,9 @@
 
         <!-- ══ 1. 訂位日期（支援多選連續日期） ═══════════════════════ -->
         <div class="card-section">
-            <div class="section-title">① 選擇訂位日期（可連續多天）</div>
+            <div class="section-title">① 選擇訂位日期</div>
             <div id="datepicker"></div>
+            <div id="rangeStatus"></div>
             <div class="date-selected-banner" id="dateBanner">
                 已選擇：<span id="selectedDateText"></span>
             </div>
@@ -509,12 +486,13 @@
         // ════════════════════════════════════════════════════════════
         // 配置區域
         // ════════════════════════════════════════════════════════════
-        const API_BASE_URL = 'https://script.google.com/macros/s/AKfycbz8BEpcjMta1m5RzQFnaebWNqI1_2W69ZJOv_ifBKuF3MxnPRhXGJq_g5k_r5lJZwQL/exec';
+        const API_BASE_URL = 'https://script.google.com/macros/s/AKfycbxzt4hEpjBdePVuQf8dLGTX7c-Vu8NptRyCpG7ES12o8lDiwSIMn5XpuvrnYIYhnkft/exec';
         const LIFF_ID = '2009523479-cbGjkaQk';
 
         // ── 全域變數 ───────────────────────────────────────────────
         var areasData = [];
         var selectedDates = []; // 已選擇的日期陣列（字串格式：yyyy/MM/dd）
+        var rangeStart = null;   // 第一次點擊的起始日期（字串），null 表示尚未選取
         var monthAvailability = {}; // 當前月份的剩餘位置資料
         var LINE_USER_ID = "";
         var LINE_ID_TOKEN = "";
@@ -524,54 +502,43 @@
         // LIFF 初始化與頁面啟動
         // ════════════════════════════════════════════════════════════
 
-        //if (LIFF_ID && /Line\//.test(navigator.userAgent)) {
-            // 在 LINE App 內：初始化 LIFF
-            // var liffTimer = setTimeout(function () {
-            //     console.warn('LIFF timeout, proceeding without LIFF');
-            //     initPage();
-            // }, 3000);
-console.log('start enter liff init');
-            liff.init({ liffId: LIFF_ID })
-                .then(function () {
-                    
-                    // clearTimeout(liffTimer);
-                    if (!liff.isLoggedIn()) {
-                        sessionStorage.setItem('liff_refreshed', '1');
-                        liff.login();
-                        return;
-                    }
+        liff.init({ liffId: LIFF_ID })
+            .then(function () {
 
-                    // 第一次進來（沒有 flag）→ 登出再登入，強制新 session
-                    if (!sessionStorage.getItem('liff_refreshed')) {
-                        sessionStorage.setItem('liff_refreshed', '1');
-                        liff.logout();
-                        liff.login(); // 觸發跳轉，回來後 session 是新的
-                        return;
-                    }
+                // clearTimeout(liffTimer);
+                if (!liff.isLoggedIn()) {
+                    sessionStorage.setItem('liff_refreshed', '1');
+                    liff.login();
+                    return;
+                }
 
-                    console.log('');
-                    return liff.getProfile();
-                })
-                .then(function (profile) {
-                    if (profile) {
-                        console.log('LIFF Profile:', profile);
-                        LINE_USER_ID = profile.userId;
-                        LINE_ID_TOKEN = liff.getIDToken();
-                        console.log("LINE_ID_TOKEN=", LINE_ID_TOKEN);
-                        LINE_DISPLAY_NAME = profile.displayName || "";
-                        console.log('LIFF initialized successfully');
-                    }
-                    initPage();
-                })
-                .catch(function (error) {
-                    console.error('LIFF init error:', error);
-                    clearTimeout(liffTimer);
-                    initPage();
-                });
-        // } else {
-        //     // 一般瀏覽器：不使用 LIFF，直接進頁面
-        //     $(function () { initPage(); });
-        // }
+                // 第一次進來（沒有 flag）→ 登出再登入，強制新 session
+                if (!sessionStorage.getItem('liff_refreshed')) {
+                    sessionStorage.setItem('liff_refreshed', '1');
+                    liff.logout();
+                    liff.login(); // 觸發跳轉，回來後 session 是新的
+                    return;
+                }
+
+                console.log('');
+                return liff.getProfile();
+            })
+            .then(function (profile) {
+                if (profile) {
+                    console.log('LIFF Profile:', profile);
+                    LINE_USER_ID = profile.userId;
+                    LINE_ID_TOKEN = liff.getIDToken();
+                    console.log("LINE_ID_TOKEN=", LINE_ID_TOKEN);
+                    LINE_DISPLAY_NAME = profile.displayName || "";
+                    console.log('LIFF initialized successfully');
+                }
+                initPage();
+            })
+            .catch(function (error) {
+                console.error('LIFF init error:', error);
+                clearTimeout(liffTimer);
+                initPage();
+            });
 
         // ════════════════════════════════════════════════════════════
         // 頁面初始化
@@ -617,9 +584,17 @@ console.log('start enter liff init');
                     var dateStr = formatDate(date);
                     var key = dateStr.replace(/\//g, '-');
 
-                    // 檢查是否已選擇
-                    var isSelected = selectedDates.indexOf(dateStr) !== -1;
-                    var cssClass = isSelected ? 'selected-date' : '';
+                    // 計算 CSS 樣式
+                    var cssClass = '';
+                    var idx = selectedDates.indexOf(dateStr);
+                    if (idx !== -1) {
+                        // 端點（起始 / 結束）顯示深色，中間顯示淡色
+                        if (selectedDates.length === 1 || idx === 0 || idx === selectedDates.length - 1) {
+                            cssClass = 'selected-date';
+                        } else {
+                            cssClass = 'range-date';
+                        }
+                    }
 
                     // 取得剩餘位置
                     var available = monthAvailability[key];
@@ -647,6 +622,16 @@ console.log('start enter liff init');
                     loadMonthAvailability(year, month);
                 }
             });
+
+            // ── Hover 預覽範圍（事件委派，refresh 後依然有效）──
+            $("#datepicker").on("mouseenter", ".ui-datepicker-calendar td", function () {
+                if (!rangeStart) return;
+                var dateStr = getDateFromTd(this);
+                if (!dateStr) return;
+                highlightHoverRange(dateStr);
+            }).on("mouseleave", ".ui-datepicker-calendar", function () {
+                clearHoverHighlight();
+            });
         }
 
         // ── 載入指定月份的剩餘位置資料 ─────────────────────────────
@@ -663,25 +648,36 @@ console.log('start enter liff init');
                 });
         }
 
-        // ── 切換日期選擇狀態（多選連續日期） ───────────────────────
+        // ── 切換日期選擇狀態（範圍選取：第1次點擊=起始，第2次點擊=結束）──
         function toggleDateSelection(dateText) {
-            var index = selectedDates.indexOf(dateText);
-
-            if (index === -1) {
-                // 新增選擇
-                selectedDates.push(dateText);
+            if (rangeStart === null) {
+                // 第一次點擊：設為起始日期
+                rangeStart = dateText;
+                selectedDates = [dateText];
+                $("#rangeStatus").text("📅 起始日期：" + dateText + "　　請繼續點選結束日期").show();
+            } else if (rangeStart === dateText) {
+                // 再次點擊同一天：視為單日訂位，完成選取
+                rangeStart = null;
+                selectedDates = [dateText];
+                $("#rangeStatus").hide();
             } else {
-                // 取消選擇
-                selectedDates.splice(index, 1);
+                // 第二次點擊：填滿範圍內所有日期
+                var start = new Date(rangeStart.replace(/\//g, '-'));
+                var end = new Date(dateText.replace(/\//g, '-'));
+                if (end < start) { var tmp = start; start = end; end = tmp; }
+
+                selectedDates = [];
+                var cur = new Date(start);
+                while (cur <= end) {
+                    selectedDates.push(formatDate(cur));
+                    cur.setDate(cur.getDate() + 1);
+                }
+                rangeStart = null;
+                $("#rangeStatus").hide();
             }
 
-            // 排序日期
             selectedDates.sort();
-
-            // 更新顯示
             updateSelectedDatesDisplay();
-
-            // 刷新日曆以更新 CSS 樣式
             $("#datepicker").datepicker("refresh");
         }
 
@@ -778,6 +774,7 @@ console.log('start enter liff init');
             // 點區域列也可切換 checkbox（除了 input 本身外）
             $(".area-row").on("click", function (e) {
                 if ($(e.target).is("input[type='number']")) return;
+                if ($(e.target).is("input[type='checkbox']")) return;
                 var $chk = $(this).find(".area-checkbox");
                 $chk.prop("checked", !$chk.prop("checked")).trigger("change");
             });
@@ -862,7 +859,6 @@ console.log('start enter liff init');
             };
 
             fetch(API_BASE_URL, {
-                redirect: "follow",
                 method: 'POST',
                 headers: {
                     'Content-Type': 'text/plain;charset=UTF-8'
@@ -912,6 +908,45 @@ console.log('start enter liff init');
 
         function hideError() {
             $("#errorMsg").hide();
+        }
+
+        // ── Hover 輔助：從 TD 元素取得日期字串 ───────────────────
+        function getDateFromTd(td) {
+            var $link = $(td).find("a");
+            if ($link.length === 0) return null;
+            var day = parseInt($link.text(), 10);
+            if (isNaN(day)) return null;
+
+            var yearText = $("#datepicker .ui-datepicker-year").text().trim();
+            var monthText = $("#datepicker .ui-datepicker-month").text().trim();
+            var year = parseInt(yearText, 10);
+            var monthNames = ["1月", "2月", "3月", "4月", "5月", "6月",
+                "7月", "8月", "9月", "10月", "11月", "12月"];
+            var month = monthNames.indexOf(monthText);
+            if (isNaN(year) || month === -1) return null;
+
+            return formatDate(new Date(year, month, day));
+        }
+
+        function highlightHoverRange(hoverDateStr) {
+            clearHoverHighlight();
+            if (!rangeStart) return;
+            var start = new Date(rangeStart.replace(/\//g, '-'));
+            var end = new Date(hoverDateStr.replace(/\//g, '-'));
+            if (end < start) { var tmp = start; start = end; end = tmp; }
+
+            $("#datepicker .ui-datepicker-calendar td").each(function () {
+                var dateStr = getDateFromTd(this);
+                if (!dateStr) return;
+                var d = new Date(dateStr.replace(/\//g, '-'));
+                if (d >= start && d <= end) {
+                    $(this).addClass("hover-range-preview");
+                }
+            });
+        }
+
+        function clearHoverHighlight() {
+            $("#datepicker .ui-datepicker-calendar td").removeClass("hover-range-preview");
         }
 
         function formatDate(date) {
