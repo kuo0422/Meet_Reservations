@@ -607,46 +607,45 @@
             }
         }
 
-        // liff.init({ liffId: LIFF_ID })
-        //     .then(function () {
+        liff.init({ liffId: LIFF_ID })
+            .then(function () {
 
-        //         if (!liff.isLoggedIn()) {
-        //             //sessionStorage.setItem('liff_refreshed', '1');
-        //             liff.login();
-        //             return new Promise(() => {}); // 永不 resolve，阻止後續 .then 執行
-        //         }
+                if (!liff.isLoggedIn()) {
+                    //sessionStorage.setItem('liff_refreshed', '1');
+                    liff.login();
+                    return new Promise(() => {}); // 永不 resolve，阻止後續 .then 執行
+                }
 
-        //         // 第一次進來（沒有 flag）→ 登出再登入，強制新 session
-        //         // if (!sessionStorage.getItem('liff_refreshed')) {
-        //         //     sessionStorage.setItem('liff_refreshed', '1');
-        //         //     liff.logout();
-        //         //     liff.login(); // 觸發跳轉，回來後 session 是新的
-        //         //     return new Promise(() => {}); // 永不 resolve，阻止後續 .then 執行
-        //         // }
+                // 第一次進來（沒有 flag）→ 登出再登入，強制新 session
+                // if (!sessionStorage.getItem('liff_refreshed')) {
+                //     sessionStorage.setItem('liff_refreshed', '1');
+                //     liff.logout();
+                //     liff.login(); // 觸發跳轉，回來後 session 是新的
+                //     return new Promise(() => {}); // 永不 resolve，阻止後續 .then 執行
+                // }
 
-        //         return liff.getProfile();
-        //     })
-        //     .then(function (profile) {
-        //         if (profile) {
-        //             LINE_USER_ID = profile.userId;
-        //             LINE_ID_TOKEN = liff.getIDToken();
-        //             LINE_DISPLAY_NAME = profile.displayName || "";
+                return liff.getProfile();
+            })
+            .then(function (profile) {
+                if (profile) {
+                    LINE_USER_ID = profile.userId;
+                    LINE_ID_TOKEN = liff.getIDToken();
+                    LINE_DISPLAY_NAME = profile.displayName || "";
 
-        //             // 若 idToken 已過期，登出並重新登入以取得新 token
-        //             if (isTokenExpired(LINE_ID_TOKEN)) {
-        //                 liff.logout();
-        //                 liff.login();
-        //                 return new Promise(() => {}); // 永不 resolve，阻止後續 .then 執行
-        //             }
-        //         }
-        //         initPage();
-        //     })
-        //     .catch(function (error) {
-        //         console.error('LIFF init error:', error);
-        //         initPage();
-        //     });
+                    // 若 idToken 已過期，登出並重新登入以取得新 token
+                    if (isTokenExpired(LINE_ID_TOKEN)) {
+                        liff.logout();
+                        liff.login();
+                        return new Promise(() => {}); // 永不 resolve，阻止後續 .then 執行
+                    }
+                }
+                initPage();
+            })
+            .catch(function (error) {
+                console.error('LIFF init error:', error);
+                initPage();
+            });
 
-        initPage();
 
         // ════════════════════════════════════════════════════════════
         // 頁面初始化
