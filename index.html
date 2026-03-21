@@ -509,7 +509,7 @@
         // ════════════════════════════════════════════════════════════
         // 配置區域
         // ════════════════════════════════════════════════════════════
-        const API_BASE_URL = 'https://script.google.com/macros/s/AKfycbyCyyE470Exo6U1OyavGevKUWCyrsk9OsE6m-APnQMsH5boz1iZ43gDszwuHNr8c74h/exec';
+        const API_BASE_URL = 'https://script.google.com/macros/s/AKfycbz8BEpcjMta1m5RzQFnaebWNqI1_2W69ZJOv_ifBKuF3MxnPRhXGJq_g5k_r5lJZwQL/exec';
         const LIFF_ID = '2009523479-cbGjkaQk';
 
         // ── 全域變數 ───────────────────────────────────────────────
@@ -862,9 +862,10 @@ console.log('start enter liff init');
             };
 
             fetch(API_BASE_URL, {
+                redirect: "follow",
                 method: 'POST',
                 headers: {
-                    'Content-Type': 'application/json'
+                    'Content-Type': 'text/plain;charset=UTF-8'
                 },
                 body: JSON.stringify(requestData)
             })
